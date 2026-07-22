@@ -18,8 +18,7 @@ if not API_KEY:
 
 client = genai.Client(api_key=API_KEY)
 
-MODEL = "gemini-2.5-flash"
-
+MODEL = "gemini-2.0-flash"
 
 # ==========================================
 # Utility Functions
