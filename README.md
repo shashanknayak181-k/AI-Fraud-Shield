@@ -41,7 +41,7 @@ AI Fraud Shield is an AI-powered web application designed to help users detect a
 ### Clone the repository
 
 ```bash
-git clone :
+git clone :https://github.com/shashanknayak181-k/AI-Fraud-Shield.git
 cd AI-Fraud-Shield
 ```
 
