@@ -38,15 +38,21 @@ function CurrencyDetector() {
         formData
       );
 
-toast.success("Currency analyzed successfully");    } catch (err) {
+      console.log("Currency API Response:", response.data);
+
+      setResult(response.data);
+
+      toast.success("Currency analyzed successfully");
+    } catch (err) {
       console.error(err);
-toast.error("Unable to analyze image.");    } finally {
+      toast.error("Unable to analyze image.");
+    } finally {
       setLoading(false);
     }
   };
 
   const confidence =
-    result?.confidence?.toString().replace("%", "") || 0;
+    Number(result?.confidence?.toString().replace("%", "")) || 0;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-8">
@@ -98,18 +104,14 @@ toast.error("Unable to analyze image.");    } finally {
 
             <div
               className={`rounded-xl p-5 ${
-                result.status
-                  .toLowerCase()
-                  .includes("auth")
+                result.status?.toLowerCase().includes("auth")
                   ? "bg-green-900"
                   : "bg-red-900"
               }`}
             >
               <div className="flex items-center gap-3">
 
-                {result.status
-                  .toLowerCase()
-                  .includes("auth") ? (
+                {result.status?.toLowerCase().includes("auth") ? (
                   <ShieldCheck />
                 ) : (
                   <ShieldAlert />
@@ -123,50 +125,34 @@ toast.error("Unable to analyze image.");    } finally {
             </div>
 
             <div className="bg-slate-800 rounded-xl p-5">
-
               <h3 className="font-bold mb-3">
                 Confidence
               </h3>
 
               <div className="w-full bg-slate-700 rounded-full h-4">
-
                 <div
                   className="bg-cyan-400 h-4 rounded-full"
-                  style={{
-                    width: `${confidence}%`,
-                  }}
+                  style={{ width: `${confidence}%` }}
                 />
-
               </div>
 
-              <p className="mt-3">
-                {result.confidence}
-              </p>
-
+              <p className="mt-3">{result.confidence}</p>
             </div>
 
             <div className="bg-slate-800 rounded-xl p-5">
-
               <h3 className="font-bold text-cyan-400 mb-3">
                 Security Features
               </h3>
 
-              <p>
-                {result.security_features}
-              </p>
-
+              <p>{result.security_features}</p>
             </div>
 
             <div className="bg-slate-800 rounded-xl p-5">
-
               <h3 className="font-bold text-cyan-400 mb-3">
                 Recommendation
               </h3>
 
-              <p>
-                {result.recommendation}
-              </p>
-
+              <p>{result.recommendation}</p>
             </div>
 
           </div>
