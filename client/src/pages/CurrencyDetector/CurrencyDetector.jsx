@@ -25,7 +25,10 @@ function CurrencyDetector() {
   };
 
   const analyzeCurrency = async () => {
-    if (!image) return;
+    if (!image) {
+      toast.error("Please upload an image first.");
+      return;
+    }
 
     const formData = new FormData();
     formData.append("file", image);
@@ -51,12 +54,23 @@ function CurrencyDetector() {
     }
   };
 
+  const isGenuine =
+    result?.status?.toLowerCase().includes("genuine") ||
+    result?.status?.toLowerCase().includes("authentic");
+
+  const confidenceMap = {
+    Low: 30,
+    Medium: 60,
+    High: 90,
+  };
+
   const confidence =
-    Number(result?.confidence?.toString().replace("%", "")) || 0;
+    confidenceMap[result?.confidence] ??
+    Number(result?.confidence?.toString().replace("%", "")) ??
+    0;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-8">
-
       <div className="max-w-5xl mx-auto">
 
         <h1 className="text-4xl font-bold flex items-center gap-3 mb-2">
@@ -94,7 +108,7 @@ function CurrencyDetector() {
         <button
           onClick={analyzeCurrency}
           disabled={loading}
-          className="mt-6 bg-cyan-500 text-black font-bold px-8 py-3 rounded-xl"
+          className="mt-6 bg-cyan-500 text-black font-bold px-8 py-3 rounded-xl hover:bg-cyan-400 disabled:opacity-60"
         >
           {loading ? "Analyzing..." : "Analyze Currency"}
         </button>
@@ -102,19 +116,19 @@ function CurrencyDetector() {
         {result && (
           <div className="mt-10 space-y-6">
 
+            {/* Status */}
+
             <div
               className={`rounded-xl p-5 ${
-                result.status?.toLowerCase().includes("auth")
-                  ? "bg-green-900"
-                  : "bg-red-900"
+                isGenuine ? "bg-green-900" : "bg-red-900"
               }`}
             >
               <div className="flex items-center gap-3">
 
-                {result.status?.toLowerCase().includes("auth") ? (
-                  <ShieldCheck />
+                {isGenuine ? (
+                  <ShieldCheck className="text-green-300" />
                 ) : (
-                  <ShieldAlert />
+                  <ShieldAlert className="text-red-300" />
                 )}
 
                 <h2 className="text-2xl font-bold">
@@ -124,42 +138,63 @@ function CurrencyDetector() {
               </div>
             </div>
 
+            {/* Confidence */}
+
             <div className="bg-slate-800 rounded-xl p-5">
+
               <h3 className="font-bold mb-3">
                 Confidence
               </h3>
 
-              <div className="w-full bg-slate-700 rounded-full h-4">
+              <div className="w-full bg-slate-700 rounded-full h-4 overflow-hidden">
+
                 <div
-                  className="bg-cyan-400 h-4 rounded-full"
-                  style={{ width: `${confidence}%` }}
+                  className="bg-cyan-400 h-4 rounded-full transition-all duration-700"
+                  style={{
+                    width: `${confidence}%`,
+                  }}
                 />
+
               </div>
 
-              <p className="mt-3">{result.confidence}</p>
+              <p className="mt-3 font-semibold">
+                {result.confidence}
+              </p>
+
             </div>
 
+            {/* Security Features */}
+
             <div className="bg-slate-800 rounded-xl p-5">
+
               <h3 className="font-bold text-cyan-400 mb-3">
                 Security Features
               </h3>
 
-              <p>{result.security_features}</p>
+              <p className="leading-7 whitespace-pre-line">
+                {result.security_features}
+              </p>
+
             </div>
 
+            {/* Recommendation */}
+
             <div className="bg-slate-800 rounded-xl p-5">
+
               <h3 className="font-bold text-cyan-400 mb-3">
                 Recommendation
               </h3>
 
-              <p>{result.recommendation}</p>
+              <p className="leading-7 whitespace-pre-line">
+                {result.recommendation}
+              </p>
+
             </div>
 
           </div>
         )}
 
       </div>
-
     </div>
   );
 }
