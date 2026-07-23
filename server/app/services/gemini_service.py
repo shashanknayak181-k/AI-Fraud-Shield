@@ -23,7 +23,7 @@ client = OpenAI(
 )
 
 TEXT_MODEL = "openai/gpt-oss-20b:free"
-VISION_MODEL = "google/gemma-3-27b-it:free"
+VISION_MODEL = "google/gemma-3-27b-it"
 
 def clean_json_response(text: str):
     """Extract JSON safely."""
