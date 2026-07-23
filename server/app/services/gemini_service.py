@@ -211,13 +211,14 @@ Rules:
         }
 
     except Exception as e:
+     print("Currency Analyzer Error:", repr(e))
 
-        return {
-            "status": "Error",
-            "confidence": "Low",
-            "security_features": str(e),
-            "recommendation": "Please try another image.",
-        }
+    return {
+        "status": "Error",
+        "confidence": "Low",
+        "security_features": str(e),
+        "recommendation": "Please try another image.",
+    }
 
 
 def chat_with_ai(question: str):
