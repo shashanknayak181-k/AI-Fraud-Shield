@@ -1,42 +1,39 @@
 import os
 import json
+import base64
 import re
-from dotenv import load_dotenv
-from PIL import Image
-from google import genai
 
-# ----------------------------------
-# Load Environment Variables
-# ----------------------------------
+from dotenv import load_dotenv
+from openai import OpenAI
 
 load_dotenv()
 
-API_KEY = os.getenv("GEMINI_API_KEY")
+API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 if not API_KEY:
-    raise ValueError("GEMINI_API_KEY not found.")
+    raise ValueError("OPENROUTER_API_KEY not found.")
 
-client = genai.Client(api_key=API_KEY)
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=API_KEY,
+    default_headers={
+        "HTTP-Referer": "https://ai-fraud-shield-two.vercel.app",
+        "X-Title": "AI Fraud Shield",
+    },
+)
 
-MODEL = "gemini-2.0-flash"
+TEXT_MODEL = "openai/gpt-oss-20b:free"
+VISION_MODEL = "qwen/qwen2.5-vl-72b-instruct:free"
 
-# ==========================================
-# Utility Functions
-# ==========================================
 
 def clean_json_response(text: str):
-    """Extract and parse JSON safely from Gemini response."""
+    """Extract JSON safely."""
 
     if not text:
         return {}
 
-    cleaned = (
-        text.replace("```json", "")
-        .replace("```", "")
-        .strip()
-    )
+    cleaned = text.replace("```json", "").replace("```", "").strip()
 
-    # Extract JSON object if Gemini adds extra text
     match = re.search(r"\{.*\}", cleaned, re.DOTALL)
 
     if match:
@@ -48,9 +45,10 @@ def clean_json_response(text: str):
         return {}
 
 
-# ==========================================
-# Scam Detection
-# ==========================================
+def encode_image(image_path: str):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
+
 
 def analyze_scam(text: str):
 
@@ -62,10 +60,10 @@ Analyze the following message.
 Return ONLY valid JSON.
 
 {{
-  "risk_score": 0,
-  "fraud_type": "",
-  "explanation": "",
-  "recommendation": ""
+    "risk_score": 0,
+    "fraud_type": "",
+    "explanation": "",
+    "recommendation": ""
 }}
 
 Rules:
@@ -75,17 +73,30 @@ Rules:
 - No explanation outside JSON.
 
 Message:
+
 {text}
 """
 
     try:
 
-        response = client.models.generate_content(
-            model=MODEL,
-            contents=prompt
+        response = client.chat.completions.create(
+            model=TEXT_MODEL,
+            temperature=0.2,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are an AI fraud detection expert."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
         )
 
-        data = clean_json_response(response.text)
+        content = response.choices[0].message.content or ""
+
+        data = clean_json_response(content)
 
         return {
             "risk_score": data.get("risk_score", 0),
@@ -108,17 +119,21 @@ Message:
             "explanation": str(e),
             "recommendation": "Please try again."
         }
-
-
-# ==========================================
-# Currency Detection
-# ==========================================
-
+        
 def analyze_currency(image_path: str):
 
     try:
 
-        image = Image.open(image_path)
+        image_base64 = encode_image(image_path)
+
+        extension = os.path.splitext(image_path)[1].lower()
+
+        mime = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".webp": "image/webp",
+        }.get(extension, "image/jpeg")
 
         prompt = """
 You are an RBI currency authentication expert.
@@ -128,63 +143,71 @@ Analyze this Indian currency note carefully.
 Return ONLY valid JSON.
 
 {
-  "status": "",
-  "confidence": "",
-  "security_features": "",
-  "recommendation": ""
+    "status": "",
+    "confidence": "",
+    "security_features": "",
+    "recommendation": ""
 }
 
 Rules:
 
-1. status MUST be exactly one of:
+1. status must be exactly one of:
 - Authentic
 - Likely Genuine
 - Suspicious
 - Likely Counterfeit
 
-2. confidence MUST be exactly one of:
+2. confidence must be exactly one of:
 - Low
 - Medium
 - High
 
-3. security_features MUST always contain a detailed paragraph explaining the visible security features.
+3. security_features must explain all visible security features in detail.
 
-4. recommendation MUST always contain user advice.
+4. recommendation must provide advice to the user.
 
-5. Return JSON ONLY.
+5. Return JSON only.
 
-6. Do not use markdown.
-
-7. Do not use ```json.
+6. No markdown.
 """
 
-        response = client.models.generate_content(
-            model=MODEL,
-            contents=[
-                prompt,
-                image
-            ]
+        response = client.chat.completions.create(
+            model=VISION_MODEL,
+            temperature=0.2,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt,
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime};base64,{image_base64}"
+                            },
+                        },
+                    ],
+                }
+            ],
         )
 
-        data = clean_json_response(response.text)
+        content = response.choices[0].message.content or ""
+
+        data = clean_json_response(content)
 
         return {
-            "status": data.get(
-                "status",
-                "Suspicious"
-            ),
-            "confidence": data.get(
-                "confidence",
-                "Medium"
-            ),
+            "status": data.get("status", "Suspicious"),
+            "confidence": data.get("confidence", "Medium"),
             "security_features": data.get(
                 "security_features",
-                "Unable to identify security features with sufficient confidence."
+                "Unable to identify security features with sufficient confidence.",
             ),
             "recommendation": data.get(
                 "recommendation",
-                "Have the currency verified by a bank or authorized authority before accepting or using it."
-            )
+                "Have the currency verified by a bank or authorized authority before accepting or using it.",
+            ),
         }
 
     except Exception as e:
@@ -193,20 +216,21 @@ Rules:
             "status": "Error",
             "confidence": "Low",
             "security_features": str(e),
-            "recommendation": "Please try another image."
+            "recommendation": "Please try another image.",
         }
 
-
-# ==========================================
-# AI Chat
-# ==========================================
 
 def chat_with_ai(question: str):
 
     prompt = f"""
 You are AI Fraud Shield Assistant.
 
-Answer in less than 150 words.
+Rules:
+
+- Answer in less than 150 words.
+- Give practical fraud prevention advice.
+- Keep the answer concise.
+- If applicable, include safety tips.
 
 Question:
 
@@ -215,13 +239,22 @@ Question:
 
     try:
 
-        response = client.models.generate_content(
-            model=MODEL,
-            contents=prompt
+        response = client.chat.completions.create(
+            model=TEXT_MODEL,
+            temperature=0.4,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are AI Fraud Shield Assistant."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
         )
 
-        return response.text
+        return (response.choices[0].message.content or "").strip()
 
     except Exception as e:
-
         return str(e)
