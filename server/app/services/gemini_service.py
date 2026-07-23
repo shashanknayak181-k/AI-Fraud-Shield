@@ -118,7 +118,6 @@ Message:
             "explanation": str(e),
             "recommendation": "Please try again."
         }
-        
 def analyze_currency(image_path: str):
 
     try:
@@ -135,48 +134,43 @@ def analyze_currency(image_path: str):
         }.get(extension, "image/jpeg")
 
         prompt = """
-You are an RBI currency authentication expert.
+You are an RBI currency verification expert.
 
 Analyze the uploaded image.
 
-If the image contains an Indian currency note, determine whether it appears genuine based only on visible security features.
+If the image is an Indian currency note, determine whether it appears genuine based ONLY on visible security features.
 
-If the image is unclear, blurred, cropped, or not a currency note, explain why.
+If the image is unclear, blurred, cropped, or not a currency note, state that clearly.
 
-Return ONLY this JSON:
+Return ONLY valid JSON in this exact format:
 
 {
-  "status":"",
-  "confidence":"",
-  "security_features":"",
-  "recommendation":""
+    "status": "",
+    "confidence": "",
+    "security_features": "",
+    "recommendation": ""
 }
 
 Rules:
 
-1. status must be exactly one of:
+status must be one of:
 - Authentic
 - Likely Genuine
 - Suspicious
 - Likely Counterfeit
 
-2. confidence must be exactly one of:
+confidence must be one of:
 - Low
 - Medium
 - High
 
-3. security_features must explain all visible security features in detail.
-
-4. recommendation must provide advice to the user.
-
-5. Return JSON only.
-
-6. No markdown.
+Do not return markdown.
+Do not return explanations outside JSON.
 """
 
         response = client.chat.completions.create(
             model=VISION_MODEL,
-            temperature=0.2,
+            temperature=0.1,
             messages=[
                 {
                     "role": "user",
@@ -194,35 +188,48 @@ Rules:
                     ],
                 }
             ],
+            max_tokens=600,
         )
 
         content = response.choices[0].message.content or ""
 
+        print("\n========== OPENROUTER RESPONSE ==========")
+        print(content)
+        print("=========================================\n")
+
         data = clean_json_response(content)
+
+        if not data:
+            return {
+                "status": "Suspicious",
+                "confidence": "Low",
+                "security_features": "The AI model did not return valid JSON.",
+                "recommendation": "Please upload a clearer image of the complete currency note."
+            }
 
         return {
             "status": data.get("status", "Suspicious"),
             "confidence": data.get("confidence", "Medium"),
             "security_features": data.get(
                 "security_features",
-                "Unable to identify security features with sufficient confidence.",
+                "No security features detected."
             ),
             "recommendation": data.get(
                 "recommendation",
-                "Have the currency verified by a bank or authorized authority before accepting or using it.",
+                "Please verify the note at a bank if unsure."
             ),
         }
 
     except Exception as e:
-     print("Currency Analyzer Error:", repr(e))
 
-    return {
-        "status": "Error",
-        "confidence": "Low",
-        "security_features": str(e),
-        "recommendation": "Please try another image.",
-    }
+        print("Currency Analyzer Error:", repr(e))
 
+        return {
+            "status": "Error",
+            "confidence": "Low",
+            "security_features": str(e),
+            "recommendation": "Please try another image."
+        }
 
 def chat_with_ai(question: str):
 
