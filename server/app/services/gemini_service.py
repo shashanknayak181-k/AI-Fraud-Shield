@@ -23,8 +23,7 @@ client = OpenAI(
 )
 
 TEXT_MODEL = "openai/gpt-oss-20b:free"
-VISION_MODEL = "qwen/qwen2.5-vl-72b-instruct:free"
-
+VISION_MODEL = "google/gemma-3-27b-it:free"
 
 def clean_json_response(text: str):
     """Extract JSON safely."""
@@ -138,15 +137,19 @@ def analyze_currency(image_path: str):
         prompt = """
 You are an RBI currency authentication expert.
 
-Analyze this Indian currency note carefully.
+Analyze the uploaded image.
 
-Return ONLY valid JSON.
+If the image contains an Indian currency note, determine whether it appears genuine based only on visible security features.
+
+If the image is unclear, blurred, cropped, or not a currency note, explain why.
+
+Return ONLY this JSON:
 
 {
-    "status": "",
-    "confidence": "",
-    "security_features": "",
-    "recommendation": ""
+  "status":"",
+  "confidence":"",
+  "security_features":"",
+  "recommendation":""
 }
 
 Rules:
